@@ -2,7 +2,7 @@ name: Build Saity
 
 on:
   push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,26 +13,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build game plugin
-        run: |
-          cd game
-          mkdir -p build
-          cd build
-          cmake ..
-          make
-
+      # IMPORTANT : le kernel d'abord, il genere libsaity_kernel_stub.a
+      # dont le plugin du jeu a besoin pour linker.
       - name: Build kernel plugin
         run: |
           cd kernel
-          mkdir -p build
-          cd build
+          mkdir -p build && cd build
+          cmake ..
+          make
+
+      - name: Build game plugin
+        run: |
+          cd game
+          mkdir -p build && cd build
           cmake ..
           make
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: plugins
+          name: saity
           path: |
-            game/build/vitacraft.suprx
             kernel/build/saity_kernel.skprx
+            game/build/vitacraft.suprx
