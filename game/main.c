@@ -552,6 +552,7 @@ static void run_item(item_t *it, int restore) {
 
 static void sd_reload(void);
 static void uc_load(void);
+/* Suppress reload toasts during IPC-backed load/save transactions. */
 static int sd_quiet = 0;
 static int sd_done = 0;
 
