@@ -15,7 +15,6 @@
 #include <psp2/io/stat.h>
 #include <taihen.h>
 #include <stdint.h>
-#include <stddef.h>
 #include <string.h>
 
 extern int saity_write(const char *path, const void *data, unsigned int size);
@@ -553,7 +552,7 @@ static void run_item(item_t *it, int restore) {
 
 static void sd_reload(void);
 static void uc_load(void);
-static int sd_quiet;
+static int sd_quiet = 0;
 static int sd_done = 0;
 
 static void tick(void) {
@@ -752,7 +751,6 @@ static const char *sd_lines[SD_LINES + SD_MAX + 2];
 static int sd_ops_base = -1;
 
 static char sd_status[24] = "";              // affiche a droite de "Reload codes"
-static int sd_quiet = 0;
 
 // ---- cheats crees dans le menu : stockes dans le plugin (uc_blob), sauvegardes en fichier si possible ----
 #define UC_MAGIC 0x31435541u
