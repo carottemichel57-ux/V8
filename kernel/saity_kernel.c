@@ -1,26 +1,33 @@
 #include <taihen.h>
 #include <stdint.h>
-#include <string.h>
 #include <psp2kern/kernel/modulemgr.h>
 #include <psp2kern/kernel/sysmem.h>
 #include <psp2kern/io/fcntl.h>
+#include <psp2kern/io/stat.h>
 
 #define SAITY_MAX_PATH 256
 #define SAITY_MAX_DATA 65536
 #define SAITY_DIR "ux0:data/saity"
 
 static char k_path[SAITY_MAX_PATH];
+static char k_out[SAITY_MAX_PATH];
 static uint8_t k_buf[SAITY_MAX_DATA];
 
-/* The user plugin's legacy fallback names are intentionally mapped to this
-   private, writable location. No user pointer is passed to ksceIo*. */
+/* Garde seulement le nom du fichier et le range dans ux0:data/saity/ */
 static int make_path(const char *user_path) {
-    char *base = strrchr(user_path, '/');
-    if (!base || !base[1]) return -1;
-    base++;
-    if (strchr(base, ':') || strlen(base) >= SAITY_MAX_PATH - sizeof(SAITY_DIR) - 2) return -1;
-    strcpy(k_path, SAITY_DIR "/");
-    strcat(k_path, base);
+    int len = 0, last = -1;
+    while (user_path[len]) { if (user_path[len] == '/') last = len; len++; }
+    if (last < 0 || last + 1 >= len) return -1;
+    const char *base = user_path + last + 1;
+    int blen = len - (last + 1);
+    for (int i = 0; i < blen; i++) if (base[i] == ':') return -1;
+    const char *dir = SAITY_DIR "/";
+    int dlen = (int)sizeof(SAITY_DIR);   /* longueur de SAITY_DIR + '/' */
+    if (dlen + blen >= SAITY_MAX_PATH) return -1;
+    int p = 0;
+    for (int i = 0; dir[i]; i++) k_out[p++] = dir[i];
+    for (int i = 0; i < blen; i++) k_out[p++] = base[i];
+    k_out[p] = 0;
     return 0;
 }
 
@@ -32,7 +39,7 @@ int saity_write(const char *path, const void *data, unsigned int size) {
     if (ksceKernelMemcpyUserToKernel(k_buf, data, size) < 0) return -4;
     (void)ksceIoMkdir("ux0:data", 0777);
     (void)ksceIoMkdir(SAITY_DIR, 0777);
-    SceUID fd = ksceIoOpen(k_path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
+    SceUID fd = ksceIoOpen(k_out, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
     if (fd < 0) return (int)fd;
     int written = ksceIoWrite(fd, k_buf, size);
     int close_result = ksceIoClose(fd);
@@ -46,7 +53,7 @@ int saity_read(const char *path, void *data, unsigned int max) {
     if (ksceKernelStrncpyFromUser(k_path, path, SAITY_MAX_PATH) < 0) return -2;
     k_path[SAITY_MAX_PATH - 1] = 0;
     if (make_path(k_path) < 0) return -3;
-    SceUID fd = ksceIoOpen(k_path, SCE_O_RDONLY, 0);
+    SceUID fd = ksceIoOpen(k_out, SCE_O_RDONLY, 0);
     if (fd < 0) return (int)fd;
     int n = ksceIoRead(fd, k_buf, max);
     int close_result = ksceIoClose(fd);
