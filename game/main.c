@@ -758,6 +758,8 @@ static char sd_status[24] = "";              // affiche a droite de "Reload code
 // ---- cheats crees dans le menu : stockes dans le plugin (uc_blob), sauvegardes en fichier si possible ----
 #define UC_MAGIC 0x31435541u
 static char uc_blob[SD_BUF];                 // format texte : [Nom]\n$xxxx xxxxxxxx xxxxxxxx\n...
+/* Scratch global: ces buffers ne doivent pas vivre sur la pile du thread du plugin. */
+static uint8_t uc_io_blob[8 + SD_BUF];
 static const char *const UC_PATHS[] = {
     "ux0:data/saity/saity_cheats.dat", "ux0:data/saity/saity_cheats.dat",
     "ux0:data/saity/saity_cheats.dat", "ux0:data/saity/saity_cheats.dat",
@@ -767,11 +769,28 @@ static const char *const UC_PATHS[] = {
 static int uc_err = 0;                         /* code d'erreur de la derniere sauvegarde */
 
 static int uc_save(void) {
-    uint32_t hdr[2]={UC_MAGIC,(uint32_t)strlen(uc_blob)}; uint8_t blob[8+SD_BUF]; uc_err=0; if(hdr[1]>=SD_BUF){uc_err=-1;return 0;} memcpy(blob,hdr,8); memcpy(blob+8,uc_blob,hdr[1]); int r=saity_write(UC_PATHS[0],blob,8+hdr[1]); uc_err=r<0?r:0; return r==(int)(8+hdr[1]);
+    uint32_t hdr[2];
+    size_t len = strlen(uc_blob);
+    uc_err = 0;
+    if (len >= SD_BUF) { uc_err = -1; return 0; }
+    hdr[0] = UC_MAGIC;
+    hdr[1] = (uint32_t)len;
+    memcpy(uc_io_blob, hdr, sizeof(hdr));
+    memcpy(uc_io_blob + sizeof(hdr), uc_blob, len);
+    int r = saity_write(UC_PATHS[0], uc_io_blob, (unsigned int)(sizeof(hdr) + len));
+    uc_err = r < 0 ? r : 0;
+    return r == (int)(sizeof(hdr) + len);
 }
 
 static void uc_load(void) {
-    uint8_t blob[8+SD_BUF]; int r=saity_read(UC_PATHS[0],blob,sizeof(blob)); if(r<8)return; uint32_t *h=(uint32_t*)blob; if(h[0]!=UC_MAGIC||h[1]>=SD_BUF||r!=(int)(8+h[1]))return; memcpy(uc_blob,blob+8,h[1]); uc_blob[h[1]]=0;
+    int r = saity_read(UC_PATHS[0], uc_io_blob, sizeof(uc_io_blob));
+    uint32_t magic, len;
+    if (r < 8) return;
+    memcpy(&magic, uc_io_blob, sizeof(magic));
+    memcpy(&len, uc_io_blob + sizeof(magic), sizeof(len));
+    if (magic != UC_MAGIC || len >= SD_BUF || r != (int)(8 + len)) return;
+    memcpy(uc_blob, uc_io_blob + 8, len);
+    uc_blob[len] = 0;
 }
 
 static cat_t *sd_cat(void) {
