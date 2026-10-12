@@ -15,6 +15,7 @@
 #include <psp2/io/stat.h>
 #include <taihen.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 
 extern int saity_write(const char *path, const void *data, unsigned int size);
