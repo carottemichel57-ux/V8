@@ -1,0 +1,36 @@
+name: Build Saity
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: vitasdk/vitasdk:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build kernel plugin
+        run: |
+          cd kernel
+          mkdir -p build && cd build
+          cmake ..
+          make
+
+      - name: Build game plugin
+        run: |
+          cd game
+          mkdir -p build && cd build
+          cmake ..
+          make
+
+      - name: Upload plugins
+        uses: actions/upload-artifact@v4
+        with:
+          name: saity-plugins
+          path: |
+            kernel/build/*.skprx
+            game/build/*.suprx
